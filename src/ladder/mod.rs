@@ -349,7 +349,7 @@ mod test {
         // verify len
         assert_eq!(4, book.asks.count());
 
-        // verify best bid, worst bid
+        // verify best ask, worst ask
         assert_eq!(PriceLevel { price: 10, qty: 101, no_of_orders: 0 }, *book.asks.best().unwrap());
         assert_eq!(PriceLevel { price: 13, qty: 99, no_of_orders: 0 }, *book.asks.worst().unwrap());
 
