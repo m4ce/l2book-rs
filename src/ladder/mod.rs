@@ -20,15 +20,13 @@ pub struct PriceLevel {
     no_of_orders: u16,
 }
 
-pub trait LadderView {
-    fn best(&self) -> Option<&PriceLevel>;
-
-    fn worst(&self) -> Option<&PriceLevel>;
-
-    fn get(&self, idx: usize) -> Option<&PriceLevel>;
-
-    fn iter(&self) -> dyn Iterator<Item=&PriceLevel>;
+impl PartialEq<Self> for PriceLevel {
+    fn eq(&self, other: &Self) -> bool {
+        self.price == other.price && self.qty == other.qty && self.no_of_orders == other.no_of_orders
+    }
 }
+
+impl Eq for PriceLevel {}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -45,6 +43,10 @@ pub struct Ladder<'comparator, 'listener> {
 impl Ladder<'_, '_> {
     pub fn iter(&self) -> impl Iterator<Item=&PriceLevel> {
         self.levels.iter().rev()
+    }
+
+    pub fn count(&self) -> usize {
+        self.levels.len()
     }
 
     pub fn best(&self) -> Option<&PriceLevel> {
@@ -278,5 +280,93 @@ impl LadderEventListener for DefaultBookEventListener {
 
     fn on_remove(&self, side: Side, level: &PriceLevel) {
         info!("Removed {:?} level: {:?}", side, level);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ladder::{Book, PriceLevel};
+    use crate::ladder::DefaultBookEventListener;
+
+    #[test]
+    fn test_initialize_book() {
+        let event_listener = DefaultBookEventListener {};
+        let book = Book::new(&event_listener);
+        assert_eq!(0, book.asks.count());
+        assert_eq!(0, book.bids.count());
+        assert_eq!(true, book.asks.best().is_none());
+        assert_eq!(true, book.asks.worst().is_none());
+        assert_eq!(true, book.bids.best().is_none());
+        assert_eq!(true, book.bids.worst().is_none());
+    }
+
+    #[test]
+    fn test_add_bids() {
+        let event_listener = DefaultBookEventListener {};
+        let mut book = Book::new(&event_listener);
+        book.begin();
+        book.update_bid(7, 99, 0);
+        book.update_bid(8, 100, 0);
+        book.update_bid(6, 98, 0);
+        book.update_bid(9, 101, 0);
+        book.end();
+
+        // verify len
+        assert_eq!(4, book.bids.count());
+
+        // verify best bid, worst bid
+        assert_eq!(PriceLevel { price: 9, qty: 101, no_of_orders: 0 }, *book.bids.best().unwrap());
+        assert_eq!(PriceLevel { price: 6, qty: 98, no_of_orders: 0 }, *book.bids.worst().unwrap());
+
+        // verify levels
+        assert_eq!(PriceLevel { price: 9, qty: 101, no_of_orders: 0 }, *book.bids.get(0).unwrap());
+        assert_eq!(PriceLevel { price: 8, qty: 100, no_of_orders: 0 }, *book.bids.get(1).unwrap());
+        assert_eq!(PriceLevel { price: 7, qty: 99, no_of_orders: 0 }, *book.bids.get(2).unwrap());
+        assert_eq!(PriceLevel { price: 6, qty: 98, no_of_orders: 0 }, *book.bids.get(3).unwrap());
+
+        // perform some updates
+        book.begin();
+        book.update_bid(7, 0, 0);
+        book.update_bid(9, 200, 0);
+        book.end();
+
+        // verify len
+        assert_eq!(3, book.bids.count());
+        assert_eq!(PriceLevel { price: 9, qty: 200, no_of_orders: 0 }, *book.bids.best().unwrap());
+    }
+
+    #[test]
+    fn test_add_asks() {
+        let event_listener = DefaultBookEventListener {};
+        let mut book = Book::new(&event_listener);
+        book.begin();
+        book.update_ask(13, 99, 0);
+        book.update_ask(11, 100, 0);
+        book.update_ask(12, 98, 0);
+        book.update_ask(10, 101, 0);
+        book.end();
+
+        // verify len
+        assert_eq!(4, book.asks.count());
+
+        // verify best bid, worst bid
+        assert_eq!(PriceLevel { price: 10, qty: 101, no_of_orders: 0 }, *book.asks.best().unwrap());
+        assert_eq!(PriceLevel { price: 13, qty: 99, no_of_orders: 0 }, *book.asks.worst().unwrap());
+
+        // verify levels
+        assert_eq!(PriceLevel { price: 10, qty: 101, no_of_orders: 0 }, *book.asks.get(0).unwrap());
+        assert_eq!(PriceLevel { price: 11, qty: 100, no_of_orders: 0 }, *book.asks.get(1).unwrap());
+        assert_eq!(PriceLevel { price: 12, qty: 98, no_of_orders: 0 }, *book.asks.get(2).unwrap());
+        assert_eq!(PriceLevel { price: 13, qty: 99, no_of_orders: 0 }, *book.asks.get(3).unwrap());
+
+        // perform some updates
+        book.begin();
+        book.update_ask(12, 0, 0);
+        book.update_ask(10, 200, 0);
+        book.end();
+
+        // verify len
+        assert_eq!(3, book.asks.count());
+        assert_eq!(PriceLevel { price: 10, qty: 200, no_of_orders: 0 }, *book.asks.best().unwrap());
     }
 }
