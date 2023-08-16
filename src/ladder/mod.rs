@@ -5,7 +5,7 @@ use derivative::Derivative;
 use crate::util::{bids_comparator, asks_comparator};
 use crate::common::{Decimal64, Side};
 
-trait LadderEventListener {
+pub trait LadderEventListener {
     fn on_add(&self, side: Side, level: &PriceLevel);
 
     fn on_update(&self, side: Side, old_level: &PriceLevel, new_level: &PriceLevel);
@@ -14,15 +14,25 @@ trait LadderEventListener {
 }
 
 #[derive(Debug, Copy, Clone)]
-struct PriceLevel {
+pub struct PriceLevel {
     price: Decimal64,
     qty: Decimal64,
     no_of_orders: u16,
 }
 
+pub trait LadderView {
+    fn best(&self) -> Option<&PriceLevel>;
+
+    fn worst(&self) -> Option<&PriceLevel>;
+
+    fn get(&self, idx: usize) -> Option<&PriceLevel>;
+
+    fn iter(&self) -> dyn Iterator<Item=&PriceLevel>;
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
-struct Ladder<'comparator, 'listener> {
+pub struct Ladder<'comparator, 'listener> {
     side: Side,
     in_batch: bool,
     #[derivative(Debug = "ignore")]
@@ -33,8 +43,27 @@ struct Ladder<'comparator, 'listener> {
 }
 
 impl Ladder<'_, '_> {
-    fn iter(&self) -> impl Iterator<Item=&PriceLevel> {
+    pub fn iter(&self) -> impl Iterator<Item=&PriceLevel> {
         self.levels.iter().rev()
+    }
+
+    pub fn best(&self) -> Option<&PriceLevel> {
+        if self.levels.len() > 0 {
+            return self.levels.last();
+        }
+        None
+    }
+
+    pub fn worst(&self) -> Option<&PriceLevel> {
+        if self.levels.len() > 0 {
+            return self.levels.first();
+        }
+        None
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&PriceLevel> {
+        // Ladders are reversed, so our offset is the tail
+        return self.levels.get(self.levels.len() - 1 - idx);
     }
 
     fn ensure_in_batch(&self) {
@@ -55,25 +84,6 @@ impl Ladder<'_, '_> {
             panic!("begin has not been called");
         }
         self.in_batch = false;
-    }
-
-    fn best(&self) -> Option<&PriceLevel> {
-        if self.levels.len() > 0 {
-            return self.levels.last();
-        }
-        None
-    }
-
-    fn worst(&self) -> Option<&PriceLevel> {
-        if self.levels.len() > 0 {
-            return self.levels.first();
-        }
-        None
-    }
-
-    fn get(&self, idx: usize) -> Option<&PriceLevel> {
-        // Ladders are reversed, so our offset is the tail
-        return self.levels.get(self.levels.len() - 1 - idx);
     }
 
     #[cfg(not(search_policy = "linear_search_policy"))]
@@ -190,13 +200,13 @@ impl Ladder<'_, '_> {
     }
 }
 
-struct Book<'comparator, 'listener> {
+pub struct Book<'comparator, 'listener> {
     bids: Ladder<'comparator, 'listener>,
     asks: Ladder<'comparator, 'listener>,
 }
 
 impl<'comparator, 'listener> Book<'comparator, 'listener> {
-    fn new(event_listener: &'listener dyn LadderEventListener) -> Self {
+    pub fn new(event_listener: &'listener dyn LadderEventListener) -> Self {
         Book {
             bids: Ladder {
                 side: Side::BUY,
@@ -215,38 +225,38 @@ impl<'comparator, 'listener> Book<'comparator, 'listener> {
         }
     }
 
-    fn begin(&mut self) {
+    pub fn begin(&mut self) {
         self.bids.begin();
         self.asks.begin();
     }
 
-    fn end(&mut self) {
+    pub fn end(&mut self) {
         self.bids.end();
         self.asks.end();
     }
 
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.bids.clear();
         self.asks.clear();
     }
 
-    fn remove_levels_before_ask(&mut self, price: Decimal64) {
+    pub fn remove_levels_before_ask(&mut self, price: Decimal64) {
         self.asks.remove_levels_before(price);
     }
 
-    fn remove_levels_before_bid(&mut self, price: Decimal64) {
+    pub fn remove_levels_before_bid(&mut self, price: Decimal64) {
         self.bids.remove_levels_before(price);
     }
 
-    fn update_ask(&mut self, price: Decimal64, qty: Decimal64, no_of_orders: u16) {
+    pub fn update_ask(&mut self, price: Decimal64, qty: Decimal64, no_of_orders: u16) {
         self.asks.add_or_update(price, qty, no_of_orders);
     }
 
-    fn update_bid(&mut self, price: Decimal64, qty: Decimal64, no_of_orders: u16) {
+    pub fn update_bid(&mut self, price: Decimal64, qty: Decimal64, no_of_orders: u16) {
         self.bids.add_or_update(price, qty, no_of_orders);
     }
 
-    fn apply_trade(&mut self, price: Decimal64, qty: Decimal64, is_buyer_mm: bool) {
+    pub fn apply_trade(&mut self, price: Decimal64, qty: Decimal64, is_buyer_mm: bool) {
         if is_buyer_mm {
             self.bids.apply_trade(price, qty);
         } else {
