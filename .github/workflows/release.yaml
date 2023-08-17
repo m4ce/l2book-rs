@@ -54,18 +54,17 @@ jobs:
           toolchain: stable
           override: true
       - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-dependencies
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
           path: |
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
             ~/.cargo/bin
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
+            ~/.cargo/git/db/
             target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - name: Release build
         run: |
           cargo install cargo-edit
@@ -82,7 +81,7 @@ jobs:
           sbot push version
       - name: Generate release description
         run: |
-          git log --oneline ${CURRENT_VERSION}..${RELEASE_VERSION} > release.desc
+          git log --oneline v${CURRENT_VERSION}..v${RELEASE_VERSION} > release.desc
       - name: Create release
         uses: actions/create-release@v1
         with:
