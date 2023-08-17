@@ -1,9 +1,9 @@
-use log::{info};
-use std::cmp::Ordering;
 use derivative::Derivative;
+use log::info;
+use std::cmp::Ordering;
 
-use crate::util::{bids_comparator, asks_comparator};
 use crate::common::{Decimal64, Side};
+use crate::util::{asks_comparator, bids_comparator};
 
 pub trait LadderEventListener {
     fn on_add(&self, side: Side, level: &PriceLevel);
@@ -22,7 +22,9 @@ pub struct PriceLevel {
 
 impl PartialEq<Self> for PriceLevel {
     fn eq(&self, other: &Self) -> bool {
-        self.price == other.price && self.qty == other.qty && self.no_of_orders == other.no_of_orders
+        self.price == other.price
+            && self.qty == other.qty
+            && self.no_of_orders == other.no_of_orders
     }
 }
 
@@ -41,7 +43,7 @@ pub struct Ladder<'comparator, 'listener> {
 }
 
 impl Ladder<'_, '_> {
-    pub fn iter(&self) -> impl Iterator<Item=&PriceLevel> {
+    pub fn iter(&self) -> impl Iterator<Item = &PriceLevel> {
         self.levels.iter().rev()
     }
 
@@ -50,14 +52,14 @@ impl Ladder<'_, '_> {
     }
 
     pub fn best(&self) -> Option<&PriceLevel> {
-        if self.levels.len() > 0 {
+        if !self.levels.is_empty() {
             return self.levels.last();
         }
         None
     }
 
     pub fn worst(&self) -> Option<&PriceLevel> {
-        if self.levels.len() > 0 {
+        if !self.levels.is_empty() {
             return self.levels.first();
         }
         None
@@ -90,8 +92,7 @@ impl Ladder<'_, '_> {
 
     #[cfg(not(search_policy = "linear_search_policy"))]
     fn find(&mut self, price: Decimal64) -> Result<usize, usize> {
-        self
-            .levels
+        self.levels
             .binary_search_by(|level| (self.comparator)(price, level.price).reverse())
     }
 
@@ -131,16 +132,17 @@ impl Ladder<'_, '_> {
                         let old_level = self.levels[pos]; // copy, should be cheap
                         self.levels[pos].qty = qty; // update the qty
                         self.levels[pos].no_of_orders = no_of_orders; // update the orders
-                        self.event_listener.on_update(self.side, &old_level, &self.levels[pos]);
+                        self.event_listener
+                            .on_update(self.side, &old_level, &self.levels[pos]);
                     }
                 }
             }
             Err(pos) => {
                 if qty > 0 {
                     let level = PriceLevel {
-                        price: price,
-                        qty: qty,
-                        no_of_orders: no_of_orders,
+                        price,
+                        qty,
+                        no_of_orders,
                     };
                     self.levels.insert(pos, level);
                     self.event_listener.on_add(self.side, &level);
@@ -157,7 +159,7 @@ impl Ladder<'_, '_> {
         self.ensure_in_batch();
         let pos = match self.find(price) {
             Ok(pos) => pos,
-            Err(pos) => pos
+            Err(pos) => pos,
         };
         for level in &self.levels[pos..] {
             self.event_listener.on_remove(self.side, level);
@@ -170,7 +172,7 @@ impl Ladder<'_, '_> {
         let result = self.find(price);
         let pos = match result {
             Ok(pos) => pos,
-            Err(pos) => pos
+            Err(pos) => pos,
         };
 
         let mut offset: usize;
@@ -188,7 +190,8 @@ impl Ladder<'_, '_> {
                 // copy the existing level and update the qty
                 let old_level = self.levels[pos]; // copy, should be cheap
                 self.levels[pos].qty = qty; // update the qty
-                self.event_listener.on_update(self.side, &old_level, &self.levels[pos]);
+                self.event_listener
+                    .on_update(self.side, &old_level, &self.levels[pos]);
             }
         } else {
             // we did not find the price level ...
@@ -215,14 +218,14 @@ impl<'comparator, 'listener> Book<'comparator, 'listener> {
                 levels: vec![],
                 comparator: &bids_comparator,
                 in_batch: false,
-                event_listener: event_listener,
+                event_listener,
             },
             asks: Ladder {
                 side: Side::SELL,
                 levels: vec![],
                 comparator: &asks_comparator,
                 in_batch: false,
-                event_listener: event_listener,
+                event_listener,
             },
         }
     }
@@ -275,7 +278,10 @@ impl LadderEventListener for DefaultBookEventListener {
     }
 
     fn on_update(&self, side: Side, old_level: &PriceLevel, new_level: &PriceLevel) {
-        info!("Updated existing {:?} level: {:?} -> {:?}", side, old_level, new_level);
+        info!(
+            "Updated existing {:?} level: {:?} -> {:?}",
+            side, old_level, new_level
+        );
     }
 
     fn on_remove(&self, side: Side, level: &PriceLevel) {
@@ -285,8 +291,8 @@ impl LadderEventListener for DefaultBookEventListener {
 
 #[cfg(test)]
 mod test {
-    use crate::ladder::{Book, PriceLevel};
     use crate::ladder::DefaultBookEventListener;
+    use crate::ladder::{Book, PriceLevel};
 
     #[test]
     fn test_initialize_book() {
@@ -315,14 +321,56 @@ mod test {
         assert_eq!(4, book.bids.count());
 
         // verify best bid, worst bid
-        assert_eq!(PriceLevel { price: 9, qty: 101, no_of_orders: 0 }, *book.bids.best().unwrap());
-        assert_eq!(PriceLevel { price: 6, qty: 98, no_of_orders: 0 }, *book.bids.worst().unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 9,
+                qty: 101,
+                no_of_orders: 0
+            },
+            *book.bids.best().unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 6,
+                qty: 98,
+                no_of_orders: 0
+            },
+            *book.bids.worst().unwrap()
+        );
 
         // verify levels
-        assert_eq!(PriceLevel { price: 9, qty: 101, no_of_orders: 0 }, *book.bids.get(0).unwrap());
-        assert_eq!(PriceLevel { price: 8, qty: 100, no_of_orders: 0 }, *book.bids.get(1).unwrap());
-        assert_eq!(PriceLevel { price: 7, qty: 99, no_of_orders: 0 }, *book.bids.get(2).unwrap());
-        assert_eq!(PriceLevel { price: 6, qty: 98, no_of_orders: 0 }, *book.bids.get(3).unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 9,
+                qty: 101,
+                no_of_orders: 0
+            },
+            *book.bids.get(0).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 8,
+                qty: 100,
+                no_of_orders: 0
+            },
+            *book.bids.get(1).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 7,
+                qty: 99,
+                no_of_orders: 0
+            },
+            *book.bids.get(2).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 6,
+                qty: 98,
+                no_of_orders: 0
+            },
+            *book.bids.get(3).unwrap()
+        );
 
         // perform some updates
         book.begin();
@@ -332,7 +380,14 @@ mod test {
 
         // verify len
         assert_eq!(3, book.bids.count());
-        assert_eq!(PriceLevel { price: 9, qty: 200, no_of_orders: 0 }, *book.bids.best().unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 9,
+                qty: 200,
+                no_of_orders: 0
+            },
+            *book.bids.best().unwrap()
+        );
     }
 
     #[test]
@@ -350,14 +405,56 @@ mod test {
         assert_eq!(4, book.asks.count());
 
         // verify best ask, worst ask
-        assert_eq!(PriceLevel { price: 10, qty: 101, no_of_orders: 0 }, *book.asks.best().unwrap());
-        assert_eq!(PriceLevel { price: 13, qty: 99, no_of_orders: 0 }, *book.asks.worst().unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 10,
+                qty: 101,
+                no_of_orders: 0
+            },
+            *book.asks.best().unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 13,
+                qty: 99,
+                no_of_orders: 0
+            },
+            *book.asks.worst().unwrap()
+        );
 
         // verify levels
-        assert_eq!(PriceLevel { price: 10, qty: 101, no_of_orders: 0 }, *book.asks.get(0).unwrap());
-        assert_eq!(PriceLevel { price: 11, qty: 100, no_of_orders: 0 }, *book.asks.get(1).unwrap());
-        assert_eq!(PriceLevel { price: 12, qty: 98, no_of_orders: 0 }, *book.asks.get(2).unwrap());
-        assert_eq!(PriceLevel { price: 13, qty: 99, no_of_orders: 0 }, *book.asks.get(3).unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 10,
+                qty: 101,
+                no_of_orders: 0
+            },
+            *book.asks.get(0).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 11,
+                qty: 100,
+                no_of_orders: 0
+            },
+            *book.asks.get(1).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 12,
+                qty: 98,
+                no_of_orders: 0
+            },
+            *book.asks.get(2).unwrap()
+        );
+        assert_eq!(
+            PriceLevel {
+                price: 13,
+                qty: 99,
+                no_of_orders: 0
+            },
+            *book.asks.get(3).unwrap()
+        );
 
         // perform some updates
         book.begin();
@@ -367,6 +464,13 @@ mod test {
 
         // verify len
         assert_eq!(3, book.asks.count());
-        assert_eq!(PriceLevel { price: 10, qty: 200, no_of_orders: 0 }, *book.asks.best().unwrap());
+        assert_eq!(
+            PriceLevel {
+                price: 10,
+                qty: 200,
+                no_of_orders: 0
+            },
+            *book.asks.best().unwrap()
+        );
     }
 }
