@@ -3,15 +3,21 @@ on:
     branches:
       - master
 
-name: Release and packaging
+name: Release
 
 env:
   SEMVERBOT_VERSION: "1.3.1"
 
 jobs:
-  build:
-    name: Release and packaging
+  test:
+    uses: ./.github/workflows/test.yml
+  release:
+    name: Release
     runs-on: ubuntu-latest
+    needs:
+      - test
+    env:
+      PROJECT_NAME: ${{ github.event.repository.name }}
     steps:
       - uses: actions/checkout@v3
       - name: Install semverbot
@@ -52,11 +58,11 @@ jobs:
           cargo install cargo-edit
           cargo set-version ${RELEASE_VERSION}
           cargo build --release
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.PROJECT_NAME_UNDERSCORE }}
-          path: target/release/${{ env.PROJECT_NAME_UNDERSCORE }}
+#      - name: Upload Artifact
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: ${{ env.PROJECT_NAME }}
+#          path: target/release/${{ env.PROJECT_NAME }}
       - name: Release version
         run: |
           sbot release version
