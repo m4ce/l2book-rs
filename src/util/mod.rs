@@ -2,20 +2,20 @@ use std::cmp::Ordering;
 
 pub const fn bids_comparator(lhs: i64, rhs: i64) -> Ordering {
     if lhs > rhs {
-        return Ordering::Greater;
+        Ordering::Greater
     } else if lhs < rhs {
-        return Ordering::Less;
+        Ordering::Less
     } else {
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 
 pub const fn asks_comparator(lhs: i64, rhs: i64) -> Ordering {
     if lhs > rhs {
-        return Ordering::Less;
+        Ordering::Less
     } else if lhs < rhs {
-        return Ordering::Greater;
+        Ordering::Greater
     } else {
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
