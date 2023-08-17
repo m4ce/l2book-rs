@@ -36,6 +36,7 @@ jobs:
           override: true
       - name: Release build
         run: |
+          cargo install cargo-edit
           cargo set-version ${RELEASE_VERSION}
           cargo build --release
       - name: Upload Artifact
