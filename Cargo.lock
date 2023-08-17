@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "l2book-rs"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "derivative",
  "log",
