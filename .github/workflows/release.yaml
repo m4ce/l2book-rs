@@ -76,7 +76,18 @@ jobs:
 #        with:
 #          name: ${{ env.PROJECT_NAME }}
 #          path: target/release/${{ env.PROJECT_NAME }}
-      - name: Release version
+      - name: Create tag
         run: |
           sbot release version
           sbot push version
+      - name: Generate release description
+        run: |
+          git log --oneline ${CURRENT_VERSION}..${RELEASE_VERSION} > release.desc
+      - name: Create release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${RELEASE_VERSION}
+          release_name: Release ${RELEASE_VERSION}
+          body_path: release.desc
+          draft: false
+          prerelease: false
