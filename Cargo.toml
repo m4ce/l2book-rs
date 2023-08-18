@@ -9,6 +9,8 @@ keywords = ["book"]
 categories = ["md"]
 
 [features]
+default = [ "linear_search_policy" ]
+binary_search_policy = []
 linear_search_policy = []
 
 [dependencies]

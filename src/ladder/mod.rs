@@ -90,13 +90,16 @@ impl Ladder<'_, '_> {
         self.in_batch = false;
     }
 
-    #[cfg(not(search_policy = "linear_search_policy"))]
+    #[cfg(all(feature = "binary_search_policy", feature = "linear_search_policy"))]
+    compile_error!("feature \"binary_search_policy\" and feature \"linear_search_policy\" cannot be enabled at the same time");
+
+    #[cfg(feature = "binary_search_policy")]
     fn find(&mut self, price: Decimal64) -> Result<usize, usize> {
         self.levels
             .binary_search_by(|level| (self.comparator)(price, level.price).reverse())
     }
 
-    #[cfg(search_policy = "linear_search_policy")]
+    #[cfg(feature = "linear_search_policy")]
     fn find(&mut self, price: Decimal64) -> Result<usize, usize> {
         if self.levels.is_empty() {
             return Err(0);
