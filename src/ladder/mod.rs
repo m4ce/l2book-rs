@@ -270,7 +270,7 @@ impl<'comparator, 'listener> Book<'comparator, 'listener> {
     }
 }
 
-struct DefaultBookEventListener {}
+pub struct DefaultBookEventListener {}
 
 impl LadderEventListener for DefaultBookEventListener {
     fn on_add(&self, side: Side, level: &PriceLevel) {
