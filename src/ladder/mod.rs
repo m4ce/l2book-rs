@@ -273,6 +273,7 @@ impl<'a> Book<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct DefaultBookEventListener {}
 
 impl LadderEventListener for DefaultBookEventListener {
