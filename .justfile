@@ -14,14 +14,14 @@ readme:
 
 # format code
 fmt:
-    cargo fmt
+    cargo fmt --all -- --check
     prettier --write .
     just --fmt --unstable
 
 # check code
 check:
     cargo check
-    cargo clippy
+    cargo clippy --features "default" -- -D warnings
 
 # build project
 build:
