@@ -14,6 +14,7 @@ pub trait LadderEventListener {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[repr(align(64))]
 pub struct PriceLevel {
     price: Decimal64,
     qty: Decimal64,
