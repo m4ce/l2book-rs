@@ -4,41 +4,42 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use l2book_rs::ladder::{Book, DefaultBookEventListener};
 use simplerand::{rand_range, Randomable};
 
-const MIN_BID: i64 = 1;
-const MAX_BID: i64 = 1000;
-const MIN_ASK: i64 = MAX_BID;
-const MAX_ASK: i64 = 2000;
+const DEFAULT_WORST_BID: i64 = 1000;
+const DEFAULT_BEST_BID: i64 = 2000;
+const DEFAULT_WORST_ASK: i64 = 4000;
+const DEFAULT_BEST_ASK: i64 = 3000;
+const TICK_SIZE: usize = 1;
 
-const LEVELS: usize = 1000;
+fn tob_benchmark(c: &mut Criterion) {
+    let listener = DefaultBookEventListener::default();
+    let mut book = Book::new(&listener);
 
-fn random<T: Randomable>(min: T, max: T) -> T {
-    rand_range::<T>(min, max)
-}
-
-fn large_book(c: &mut Criterion) {
-    let bids: Vec<i64> = (0..LEVELS)
-        .map(|_| random::<i64>(MIN_BID, MAX_BID))
-        .collect();
-    let asks: Vec<i64> = (0..LEVELS)
-        .map(|_| random::<i64>(MIN_ASK, MAX_ASK))
-        .collect();
-    c.bench_function("large book", |b| {
+    c.bench_function("best bid", |b| {
+        book.clear();
+        let mut px: i64 = DEFAULT_BEST_BID + TICK_SIZE as i64;
         b.iter(|| {
-            let listener = DefaultBookEventListener::default();
-            let mut book = Book::new(&listener);
             book.begin();
-            for i in 0..LEVELS {
-                book.update_bid(bids[i], 10, 1);
-                book.update_ask(asks[i], 10, 1);
-            }
+            book.update_bid(px, 1, 1);
             book.end();
-        })
+            px += TICK_SIZE as i64;
+        });
+    });
+
+    c.bench_function("best ask", |b| {
+        book.clear();
+        let mut px: i64 = DEFAULT_BEST_ASK - TICK_SIZE as i64;
+        b.iter(|| {
+            book.begin();
+            book.update_ask(px, 1, 1);
+            book.end();
+            px -= TICK_SIZE as i64;
+        });
     });
 }
 
 criterion_group! {
     name = benches;
     config = Criterion::default().measurement_time(Duration::from_secs(10));
-    targets = large_book
+    targets = tob_benchmark
 }
 criterion_main!(benches);
