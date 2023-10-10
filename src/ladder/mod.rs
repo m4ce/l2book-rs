@@ -249,6 +249,14 @@ impl<'a> Book<'a> {
         self.asks.clear();
     }
 
+    pub fn bids(&self) -> &Ladder {
+        &self.bids
+    }
+
+    pub fn asks(&self) -> &Ladder {
+        &self.asks
+    }
+
     pub fn remove_levels_before_ask(&mut self, price: Decimal64) {
         self.asks.remove_levels_before(price);
     }
