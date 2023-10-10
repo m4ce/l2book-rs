@@ -33,17 +33,17 @@ impl Eq for PriceLevel {}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct Ladder<'comparator, 'listener> {
+pub struct Ladder<'a> {
     side: Side,
     in_batch: bool,
     #[derivative(Debug = "ignore")]
-    event_listener: &'listener dyn LadderEventListener,
+    event_listener: &'a dyn LadderEventListener,
     levels: Vec<PriceLevel>,
     #[derivative(Debug = "ignore")]
-    comparator: &'comparator dyn Fn(i64, i64) -> Ordering,
+    comparator: &'a dyn Fn(i64, i64) -> Ordering,
 }
 
-impl Ladder<'_, '_> {
+impl Ladder<'_> {
     pub fn iter(&self) -> impl Iterator<Item = &PriceLevel> {
         self.levels.iter().rev()
     }
@@ -91,13 +91,16 @@ impl Ladder<'_, '_> {
         self.in_batch = false;
     }
 
-    #[cfg(not(search_policy = "linear_search_policy"))]
+    #[cfg(all(feature = "binary_search_policy", feature = "linear_search_policy"))]
+    compile_error!("feature \"binary_search_policy\" and feature \"linear_search_policy\" cannot be enabled at the same time");
+
+    #[cfg(feature = "binary_search_policy")]
     fn find(&mut self, price: Decimal64) -> Result<usize, usize> {
         self.levels
             .binary_search_by(|level| (self.comparator)(price, level.price).reverse())
     }
 
-    #[cfg(search_policy = "linear_search_policy")]
+    #[cfg(feature = "linear_search_policy")]
     fn find(&mut self, price: Decimal64) -> Result<usize, usize> {
         if self.levels.is_empty() {
             return Err(0);
@@ -206,13 +209,13 @@ impl Ladder<'_, '_> {
     }
 }
 
-pub struct Book<'comparator, 'listener> {
-    bids: Ladder<'comparator, 'listener>,
-    asks: Ladder<'comparator, 'listener>,
+pub struct Book<'a> {
+    bids: Ladder<'a>,
+    asks: Ladder<'a>,
 }
 
-impl<'comparator, 'listener> Book<'comparator, 'listener> {
-    pub fn new(event_listener: &'listener dyn LadderEventListener) -> Self {
+impl<'a> Book<'a> {
+    pub fn new(event_listener: &'a dyn LadderEventListener) -> Self {
         Book {
             bids: Ladder {
                 side: Side::BUY,
@@ -271,7 +274,8 @@ impl<'comparator, 'listener> Book<'comparator, 'listener> {
     }
 }
 
-struct DefaultBookEventListener {}
+#[derive(Default)]
+pub struct DefaultBookEventListener {}
 
 impl LadderEventListener for DefaultBookEventListener {
     fn on_add(&self, side: Side, level: &PriceLevel) {
